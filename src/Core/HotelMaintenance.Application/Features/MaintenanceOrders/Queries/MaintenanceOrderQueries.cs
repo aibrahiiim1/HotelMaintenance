@@ -51,3 +51,75 @@ public record GetOrderCommentsQuery(long OrderId)
 // Get Order Attachments Query
 public record GetOrderAttachmentsQuery(long OrderId) 
     : IRequest<Result<IEnumerable<OrderAttachmentDto>>>;
+
+///// <summary>
+///// Query to get all orders for a specific hotel (paginated)
+///// </summary>
+//public class GetOrdersByHotelQuery : IRequest<Result<PagedResult<MaintenanceOrderDto>>>
+//{
+//    public int HotelId { get; set; }
+//    public int PageNumber { get; set; } = 1;
+//    public int PageSize { get; set; } = 10;
+//}
+
+///// <summary>
+///// Query to get all orders for a specific department (paginated)
+///// </summary>
+//public class GetOrdersByDepartmentQuery : IRequest<Result<PagedResult<MaintenanceOrderDto>>>
+//{
+//    public int DepartmentId { get; set; }
+//    public int PageNumber { get; set; } = 1;
+//    public int PageSize { get; set; } = 10;
+//}
+
+///// <summary>
+///// Query to get orders assigned to a specific user (paginated)
+///// </summary>
+//public class GetAssignedOrdersQuery : IRequest<Result<PagedResult<MaintenanceOrderDto>>>
+//{
+//    public string UserId { get; set; } = string.Empty;
+//    public int PageNumber { get; set; } = 1;
+//    public int PageSize { get; set; } = 10;
+//}
+
+///// <summary>
+///// Query to get orders created by the current user (paginated)
+///// </summary>
+//public class GetMyOrdersQuery : IRequest<Result<PagedResult<MaintenanceOrderDto>>>
+//{
+//    public string UserId { get; set; } = string.Empty;
+//    public int PageNumber { get; set; } = 1;
+//    public int PageSize { get; set; } = 10;
+//}
+
+///// <summary>
+///// Query to get all overdue orders
+///// </summary>
+//public class GetOverdueOrdersQuery : IRequest<Result<IEnumerable<MaintenanceOrderDto>>>
+//{
+//    public int? HotelId { get; set; }
+//}
+
+///// <summary>
+///// Query to get all orders that have breached SLA
+///// </summary>
+//public class GetSLABreachedOrdersQuery : IRequest<Result<IEnumerable<MaintenanceOrderDto>>>
+//{
+//    public int? HotelId { get; set; }
+//}
+
+///// <summary>
+///// Query to get assignment history for a specific order
+///// </summary>
+//public class GetOrderAssignmentHistoryQuery : IRequest<Result<IEnumerable<OrderAssignmentHistoryDto>>>
+//{
+//    public int OrderId { get; set; }
+//}
+
+///// <summary>
+///// Query to get all attachments for a specific order
+///// </summary>
+//public class GetOrderAttachmentsQuery : IRequest<Result<IEnumerable<OrderAttachmentDto>>>
+//{
+//    public int OrderId { get; set; }
+//}

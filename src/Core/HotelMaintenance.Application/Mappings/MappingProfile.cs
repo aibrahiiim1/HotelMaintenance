@@ -80,7 +80,8 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.AttachmentCount, opt => opt.MapFrom(src => src.Attachments.Count))
             .ForMember(dest => dest.CommentCount, opt => opt.MapFrom(src => src.Comments.Count))
             .ForMember(dest => dest.SparePartsCount, opt => opt.MapFrom(src => src.SparePartsUsed.Count));
-        
+
+
         CreateMap<CreateMaintenanceOrderDto, MaintenanceOrder>()
             .ForMember(dest => dest.CurrentStatus, opt => opt.MapFrom(src => Domain.Enums.OrderStatus.Draft));
         CreateMap<UpdateMaintenanceOrderDto, MaintenanceOrder>();

@@ -233,3 +233,345 @@ public class GetOrderCommentsHandler : IRequestHandler<GetOrderCommentsQuery, Re
         }
     }
 }
+
+/// <summary>
+/// GET ORDERS BY HOTEL - Retrieves all orders for a specific hotel
+/// </summary>
+public class GetOrdersByHotelHandler : IRequestHandler<GetOrdersByHotelQuery, Result<PagedResult<MaintenanceOrderDto>>>
+{
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
+
+    public GetOrdersByHotelHandler(IUnitOfWork unitOfWork, IMapper mapper)
+    {
+        _unitOfWork = unitOfWork;
+        _mapper = mapper;
+    }
+
+    public async Task<Result<PagedResult<MaintenanceOrderDto>>> Handle(GetOrdersByHotelQuery request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var orders = await _unitOfWork.MaintenanceOrders.GetOrdersByHotelAsync(request.HotelId, cancellationToken);
+            var ordersQuery = orders.AsQueryable();
+
+            // Get total count
+            var totalCount = ordersQuery.Count();
+
+            // Apply pagination
+            var pagedOrders = ordersQuery
+                .OrderByDescending(o => o.CreatedAt)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToList();
+
+            // Map to DTOs
+            var orderDtos = _mapper.Map<List<MaintenanceOrderDto>>(pagedOrders);
+
+            var pagedResult = new PagedResult<MaintenanceOrderDto>
+            {
+                Items = orderDtos,
+                TotalCount = totalCount,
+                PageNumber = request.PageNumber,
+                PageSize = request.PageSize
+            };
+
+            return Result<PagedResult<MaintenanceOrderDto>>.Success(pagedResult);
+        }
+        catch (Exception ex)
+        {
+            return Result<PagedResult<MaintenanceOrderDto>>.Failure($"Error retrieving orders by hotel: {ex.Message}");
+        }
+    }
+}
+
+/// <summary>
+/// GET ORDERS BY DEPARTMENT - Retrieves all orders for a specific department
+/// </summary>
+public class GetOrdersByDepartmentHandler : IRequestHandler<GetOrdersByDepartmentQuery, Result<PagedResult<MaintenanceOrderDto>>>
+{
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
+
+    public GetOrdersByDepartmentHandler(IUnitOfWork unitOfWork, IMapper mapper)
+    {
+        _unitOfWork = unitOfWork;
+        _mapper = mapper;
+    }
+
+    public async Task<Result<PagedResult<MaintenanceOrderDto>>> Handle(GetOrdersByDepartmentQuery request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var orders = await _unitOfWork.MaintenanceOrders.GetOrdersByDepartmentAsync(request.DepartmentId, cancellationToken);
+            var ordersQuery = orders.AsQueryable();
+
+            // Get total count
+            var totalCount = ordersQuery.Count();
+
+            // Apply pagination
+            var pagedOrders = ordersQuery
+                .OrderByDescending(o => o.CreatedAt)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToList();
+
+            // Map to DTOs
+            var orderDtos = _mapper.Map<List<MaintenanceOrderDto>>(pagedOrders);
+
+            var pagedResult = new PagedResult<MaintenanceOrderDto>
+            {
+                Items = orderDtos,
+                TotalCount = totalCount,
+                PageNumber = request.PageNumber,
+                PageSize = request.PageSize
+            };
+
+            return Result<PagedResult<MaintenanceOrderDto>>.Success(pagedResult);
+        }
+        catch (Exception ex)
+        {
+            return Result<PagedResult<MaintenanceOrderDto>>.Failure($"Error retrieving orders by department: {ex.Message}");
+        }
+    }
+}
+
+/// <summary>
+/// GET ASSIGNED ORDERS - Retrieves orders assigned to a specific user
+/// </summary>
+public class GetAssignedOrdersHandler : IRequestHandler<GetAssignedOrdersQuery, Result<PagedResult<MaintenanceOrderDto>>>
+{
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
+
+    public GetAssignedOrdersHandler(IUnitOfWork unitOfWork, IMapper mapper)
+    {
+        _unitOfWork = unitOfWork;
+        _mapper = mapper;
+    }
+
+    public async Task<Result<PagedResult<MaintenanceOrderDto>>> Handle(GetAssignedOrdersQuery request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var orders = await _unitOfWork.MaintenanceOrders.GetAssignedOrdersAsync(request.UserId, cancellationToken);
+            var ordersQuery = orders.AsQueryable();
+
+            // Get total count
+            var totalCount = ordersQuery.Count();
+
+            // Apply pagination
+            var pagedOrders = ordersQuery
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToList();
+
+            // Map to DTOs
+            var orderDtos = _mapper.Map<List<MaintenanceOrderDto>>(pagedOrders);
+
+            var pagedResult = new PagedResult<MaintenanceOrderDto>
+            {
+                Items = orderDtos,
+                TotalCount = totalCount,
+                PageNumber = request.PageNumber,
+                PageSize = request.PageSize
+            };
+
+            return Result<PagedResult<MaintenanceOrderDto>>.Success(pagedResult);
+        }
+        catch (Exception ex)
+        {
+            return Result<PagedResult<MaintenanceOrderDto>>.Failure($"Error retrieving assigned orders: {ex.Message}");
+        }
+    }
+}
+
+/// <summary>
+/// GET MY ORDERS - Retrieves orders created by a specific user
+/// </summary>
+public class GetMyOrdersHandler : IRequestHandler<GetMyOrdersQuery, Result<PagedResult<MaintenanceOrderDto>>>
+{
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
+
+    public GetMyOrdersHandler(IUnitOfWork unitOfWork, IMapper mapper)
+    {
+        _unitOfWork = unitOfWork;
+        _mapper = mapper;
+    }
+
+    public async Task<Result<PagedResult<MaintenanceOrderDto>>> Handle(GetMyOrdersQuery request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var orders = await _unitOfWork.MaintenanceOrders.FindAsync(
+                o => o.CreatedByUserId == request.UserId,
+                cancellationToken);
+
+            var ordersQuery = orders.AsQueryable();
+
+            // Get total count
+            var totalCount = ordersQuery.Count();
+
+            // Apply pagination
+            var pagedOrders = ordersQuery
+                .OrderByDescending(o => o.CreatedAt)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToList();
+
+            // Map to DTOs
+            var orderDtos = _mapper.Map<List<MaintenanceOrderDto>>(pagedOrders);
+
+            var pagedResult = new PagedResult<MaintenanceOrderDto>
+            {
+                Items = orderDtos,
+                TotalCount = totalCount,
+                PageNumber = request.PageNumber,
+                PageSize = request.PageSize
+            };
+
+            return Result<PagedResult<MaintenanceOrderDto>>.Success(pagedResult);
+        }
+        catch (Exception ex)
+        {
+            return Result<PagedResult<MaintenanceOrderDto>>.Failure($"Error retrieving my orders: {ex.Message}");
+        }
+    }
+}
+
+/// <summary>
+/// GET OVERDUE ORDERS - Retrieves all overdue orders
+/// </summary>
+public class GetOverdueOrdersHandler : IRequestHandler<GetOverdueOrdersQuery, Result<IEnumerable<MaintenanceOrderDto>>>
+{
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
+
+    public GetOverdueOrdersHandler(IUnitOfWork unitOfWork, IMapper mapper)
+    {
+        _unitOfWork = unitOfWork;
+        _mapper = mapper;
+    }
+
+    public async Task<Result<IEnumerable<MaintenanceOrderDto>>> Handle(GetOverdueOrdersQuery request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var orders = await _unitOfWork.MaintenanceOrders.GetOverdueOrdersAsync(cancellationToken);
+
+            // Filter by hotel if specified
+            if (request.HotelId.HasValue)
+            {
+                orders = orders.Where(o => o.HotelId == request.HotelId.Value);
+            }
+
+            var orderDtos = _mapper.Map<List<MaintenanceOrderDto>>(orders);
+            return Result<IEnumerable<MaintenanceOrderDto>>.Success(orderDtos);
+        }
+        catch (Exception ex)
+        {
+            return Result<IEnumerable<MaintenanceOrderDto>>.Failure($"Error retrieving overdue orders: {ex.Message}");
+        }
+    }
+}
+
+/// <summary>
+/// GET SLA BREACHED ORDERS - Retrieves all orders that have breached SLA
+/// </summary>
+public class GetSLABreachedOrdersHandler : IRequestHandler<GetSLABreachedOrdersQuery, Result<IEnumerable<MaintenanceOrderDto>>>
+{
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
+
+    public GetSLABreachedOrdersHandler(IUnitOfWork unitOfWork, IMapper mapper)
+    {
+        _unitOfWork = unitOfWork;
+        _mapper = mapper;
+    }
+
+    public async Task<Result<IEnumerable<MaintenanceOrderDto>>> Handle(GetSLABreachedOrdersQuery request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var orders = await _unitOfWork.MaintenanceOrders.GetSLABreachedOrdersAsync(cancellationToken);
+
+            // Filter by hotel if specified
+            if (request.HotelId.HasValue)
+            {
+                orders = orders.Where(o => o.HotelId == request.HotelId.Value);
+            }
+
+            var orderDtos = _mapper.Map<List<MaintenanceOrderDto>>(orders);
+            return Result<IEnumerable<MaintenanceOrderDto>>.Success(orderDtos);
+        }
+        catch (Exception ex)
+        {
+            return Result<IEnumerable<MaintenanceOrderDto>>.Failure($"Error retrieving SLA breached orders: {ex.Message}");
+        }
+    }
+}
+
+/// <summary>
+/// GET ORDER ASSIGNMENT HISTORY - Retrieves assignment history for an order
+/// </summary>
+public class GetOrderAssignmentHistoryHandler : IRequestHandler<GetOrderAssignmentHistoryQuery, Result<IEnumerable<OrderAssignmentHistoryDto>>>
+{
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
+
+    public GetOrderAssignmentHistoryHandler(IUnitOfWork unitOfWork, IMapper mapper)
+    {
+        _unitOfWork = unitOfWork;
+        _mapper = mapper;
+    }
+
+    public async Task<Result<IEnumerable<OrderAssignmentHistoryDto>>> Handle(GetOrderAssignmentHistoryQuery request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var history = await _unitOfWork.OrderAssignmentHistory.FindAsync(
+                h => h.MaintenanceOrderId == request.OrderId,
+                cancellationToken);
+
+            var historyDtos = _mapper.Map<List<OrderAssignmentHistoryDto>>(history.OrderByDescending(h => h.AssignedAt));
+            return Result<IEnumerable<OrderAssignmentHistoryDto>>.Success(historyDtos);
+        }
+        catch (Exception ex)
+        {
+            return Result<IEnumerable<OrderAssignmentHistoryDto>>.Failure($"Error retrieving assignment history: {ex.Message}");
+        }
+    }
+}
+
+/// <summary>
+/// GET ORDER ATTACHMENTS - Retrieves all attachments for an order
+/// </summary>
+public class GetOrderAttachmentsHandler : IRequestHandler<GetOrderAttachmentsQuery, Result<IEnumerable<OrderAttachmentDto>>>
+{
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
+
+    public GetOrderAttachmentsHandler(IUnitOfWork unitOfWork, IMapper mapper)
+    {
+        _unitOfWork = unitOfWork;
+        _mapper = mapper;
+    }
+
+    public async Task<Result<IEnumerable<OrderAttachmentDto>>> Handle(GetOrderAttachmentsQuery request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var attachments = await _unitOfWork.OrderAttachments.FindAsync(
+                a => a.MaintenanceOrderId == request.OrderId,
+                cancellationToken);
+
+            var attachmentDtos = _mapper.Map<List<OrderAttachmentDto>>(attachments.OrderByDescending(a => a.UploadedAt));
+            return Result<IEnumerable<OrderAttachmentDto>>.Success(attachmentDtos);
+        }
+        catch (Exception ex)
+        {
+            return Result<IEnumerable<OrderAttachmentDto>>.Failure($"Error retrieving attachments: {ex.Message}");
+        }
+    }
+}

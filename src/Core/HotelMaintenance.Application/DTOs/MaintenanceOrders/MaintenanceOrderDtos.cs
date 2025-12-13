@@ -245,4 +245,43 @@ public class OrderAttachmentDto
     public string? Description { get; set; }
     public string UploadedByUserName { get; set; } = string.Empty;
     public DateTime UploadedAt { get; set; }
+    public int MaintenanceOrderId { get; set; }
+    public string FilePath { get; set; } = string.Empty;
+    public string ContentType { get; set; } = string.Empty;
+    public AttachmentType AttachmentType { get; set; }
+    public string UploadedByUserId { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Request DTO for adding a comment
+/// </summary>
+public class AddOrderCommentDto
+{
+    public int MaintenanceOrderId { get; set; }
+    public string Comment { get; set; } = string.Empty;
+    public bool IsInternal { get; set; }
+}
+
+/// <summary>
+/// Request DTO for uploading an attachment
+/// </summary>
+public class UploadOrderAttachmentDto
+{
+    public int MaintenanceOrderId { get; set; }
+    public string FileName { get; set; } = string.Empty;
+    public string ContentType { get; set; } = string.Empty;
+    public long FileSize { get; set; }
+    public byte[] FileContent { get; set; } = Array.Empty<byte>();
+}
+
+/// <summary>
+/// Response DTO for file upload
+/// </summary>
+public class FileUploadResponseDto
+{
+    public string FileName { get; set; } = string.Empty;
+    public string FileUrl { get; set; } = string.Empty;
+    public string FilePath { get; set; } = string.Empty;
+    public long FileSize { get; set; }
+    public AttachmentType AttachmentType { get; set; }
 }

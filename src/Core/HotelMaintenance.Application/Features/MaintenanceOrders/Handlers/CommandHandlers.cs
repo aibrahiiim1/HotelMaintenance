@@ -321,3 +321,537 @@ public class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatusCommand
         return validTransitions.ContainsKey(currentStatus) && validTransitions[currentStatus].Contains(newStatus);
     }
 }
+
+/// <summary>
+/// UPDATE ORDER HANDLER - Updates maintenance order details
+/// </summary>
+public class UpdateMaintenanceOrderHandler : IRequestHandler<UpdateMaintenanceOrderCommand, Result<MaintenanceOrderDto>>
+{
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
+    private readonly IValidator<UpdateMaintenanceOrderDto> _validator;
+
+    public UpdateMaintenanceOrderHandler(IUnitOfWork unitOfWork, IMapper mapper, IValidator<UpdateMaintenanceOrderDto> validator)
+    {
+        _unitOfWork = unitOfWork;
+        _mapper = mapper;
+        _validator = validator;
+    }
+
+    public async Task<Result<MaintenanceOrderDto>> Handle(UpdateMaintenanceOrderCommand request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Validate
+            var validationResult = await _validator.ValidateAsync(request.OrderDto, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                return Result<MaintenanceOrderDto>.Failure(validationResult.Errors.Select(e => e.ErrorMessage).ToList());
+            }
+
+            // Get order
+            var order = await _unitOfWork.MaintenanceOrders.GetByIdAsync(request.OrderId, cancellationToken);
+            if (order == null)
+                return Result<MaintenanceOrderDto>.Failure("Order not found");
+
+            // Check if order can be updated
+            if (order.CurrentStatus == OrderStatus.Completed || order.CurrentStatus == OrderStatus.Closed)
+                return Result<MaintenanceOrderDto>.Failure("Cannot update a completed or closed order");
+
+            // Update order fields
+            order.Title = request.OrderDto.Title;
+            order.Description = request.OrderDto.Description;
+            order.Priority = request.OrderDto.Priority;
+            order.LocationId = request.OrderDto.LocationId;
+            order.ItemId = request.OrderDto.ItemId;
+            order.ExpectedCompletionDate = request.OrderDto.ExpectedCompletionDate;
+            order.IsUrgent = request.OrderDto.IsUrgent;
+            order.IsSafetyRelated = request.OrderDto.IsSafetyRelated;
+            order.LastModifiedAt = DateTime.UtcNow;
+            order.LastModifiedByUserId = request.ModifiedByUserId;
+
+            _unitOfWork.MaintenanceOrders.Update(order);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            // Reload with details
+            order = await _unitOfWork.MaintenanceOrders.GetOrderWithDetailsAsync(order.Id, cancellationToken);
+            var orderDto = _mapper.Map<MaintenanceOrderDto>(order);
+
+            return Result<MaintenanceOrderDto>.Success(orderDto, "Order updated successfully");
+        }
+        catch (Exception ex)
+        {
+            return Result<MaintenanceOrderDto>.Failure($"Error updating order: {ex.Message}");
+        }
+    }
+}
+
+/// <summary>
+/// COMPLETE ORDER HANDLER - Marks order as completed with resolution details
+/// </summary>
+public class CompleteMaintenanceOrderHandler : IRequestHandler<CompleteMaintenanceOrderCommand, Result<MaintenanceOrderDto>>
+{
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
+    private readonly IValidator<CompleteOrderDto> _validator;
+
+    public CompleteMaintenanceOrderHandler(IUnitOfWork unitOfWork, IMapper mapper, IValidator<CompleteOrderDto> validator)
+    {
+        _unitOfWork = unitOfWork;
+        _mapper = mapper;
+        _validator = validator;
+    }
+
+    public async Task<Result<MaintenanceOrderDto>> Handle(CompleteMaintenanceOrderCommand request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Validate
+            var validationResult = await _validator.ValidateAsync(request.CompleteDto, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                return Result<MaintenanceOrderDto>.Failure(validationResult.Errors.Select(e => e.ErrorMessage).ToList());
+            }
+
+            await _unitOfWork.BeginTransactionAsync(cancellationToken);
+
+            // Get order
+            var order = await _unitOfWork.MaintenanceOrders.GetOrderWithDetailsAsync(request.OrderId, cancellationToken);
+            if (order == null)
+                return Result<MaintenanceOrderDto>.Failure("Order not found");
+
+            // Check if order can be completed
+            if (order.CurrentStatus == OrderStatus.Completed || order.CurrentStatus == OrderStatus.Closed)
+                return Result<MaintenanceOrderDto>.Failure("Order is already completed or closed");
+
+            if (order.CurrentStatus == OrderStatus.Draft || order.CurrentStatus == OrderStatus.Submitted)
+                return Result<MaintenanceOrderDto>.Failure("Cannot complete an order that hasn't been started");
+
+            // Update order with completion details
+            var previousStatus = order.CurrentStatus;
+            order.CurrentStatus = OrderStatus.Completed;
+            order.ActualCompletionDate = DateTime.UtcNow;
+            order.CompletedByUserId = request.CompletedByUserId;
+            order.ResolutionNotes = request.CompleteDto.ResolutionNotes;
+            order.RequiresFollowUp = request.CompleteDto.RequiresFollowUp;
+            order.FollowUpDate = request.CompleteDto.FollowUpDate;
+            order.LaborCost = request.CompleteDto.LaborCost;
+            order.MaterialCost = request.CompleteDto.MaterialCost;
+            order.LastModifiedAt = DateTime.UtcNow;
+            order.LastModifiedByUserId = request.CompletedByUserId;
+
+            // Calculate resolution time
+            if (order.SubmittedAt.HasValue)
+            {
+                order.ResolutionTimeMinutes = (int)(DateTime.UtcNow - order.SubmittedAt.Value).TotalMinutes;
+            }
+
+            // Add spare parts usage
+            foreach (var sparePartUsage in request.CompleteDto.SparePartsUsed)
+            {
+                var orderSparePartUsage = new OrderSparePartUsage
+                {
+                    MaintenanceOrderId = order.Id,
+                    SparePartId = sparePartUsage.SparePartId,
+                    QuantityUsed = sparePartUsage.QuantityUsed,
+                    UnitCost = sparePartUsage.UnitCost,
+                    TotalCost = sparePartUsage.QuantityUsed * sparePartUsage.UnitCost,
+                    UsedByUserId = request.CompletedByUserId,
+                    UsedAt = DateTime.UtcNow,
+                    Notes = sparePartUsage.Notes
+                };
+                await _unitOfWork.OrderSparePartUsage.AddAsync(orderSparePartUsage, cancellationToken);
+
+                // Update spare part inventory
+                var sparePart = await _unitOfWork.SpareParts.GetByIdAsync(sparePartUsage.SparePartId, cancellationToken);
+                if (sparePart != null)
+                {
+                    var quantityBefore = sparePart.QuantityOnHand;
+                    sparePart.QuantityOnHand -= sparePartUsage.QuantityUsed;
+                    _unitOfWork.SpareParts.Update(sparePart);
+
+                    // Add spare part transaction
+                    var transaction = new SparePartTransaction
+                    {
+                        SparePartId = sparePartUsage.SparePartId,
+                        Type = TransactionType.Usage,
+                        Quantity = -sparePartUsage.QuantityUsed,
+                        QuantityBefore = quantityBefore,
+                        QuantityAfter = sparePart.QuantityOnHand,
+                        UnitCost = sparePartUsage.UnitCost,
+                        TotalCost = sparePartUsage.QuantityUsed * sparePartUsage.UnitCost,
+                        ReferenceId = order.Id,
+                        ReferenceType = "MaintenanceOrder",
+                        ReferenceNumber = order.OrderNumber,
+                        TransactionByUserId = request.CompletedByUserId,
+                        TransactionDate = DateTime.UtcNow,
+                        Notes = $"Used in order {order.OrderNumber}"
+                    };
+                    await _unitOfWork.SparePartTransactions.AddAsync(transaction, cancellationToken);
+                }
+            }
+
+            // Calculate total actual cost
+            var sparePartsCost = request.CompleteDto.SparePartsUsed.Sum(sp => sp.QuantityUsed * sp.UnitCost);
+            order.ActualCost = request.CompleteDto.LaborCost + request.CompleteDto.MaterialCost + sparePartsCost;
+
+            // Add status history
+            var statusHistory = new OrderStatusHistory
+            {
+                MaintenanceOrderId = order.Id,
+                FromStatus = previousStatus,
+                ToStatus = OrderStatus.Completed,
+                ChangedAt = DateTime.UtcNow,
+                ChangedByUserId = request.CompletedByUserId,
+                Notes = "Order completed"
+            };
+            await _unitOfWork.OrderStatusHistory.AddAsync(statusHistory, cancellationToken);
+
+            _unitOfWork.MaintenanceOrders.Update(order);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+            // Reload with details
+            order = await _unitOfWork.MaintenanceOrders.GetOrderWithDetailsAsync(order.Id, cancellationToken);
+            var orderDto = _mapper.Map<MaintenanceOrderDto>(order);
+
+            return Result<MaintenanceOrderDto>.Success(orderDto, "Order completed successfully");
+        }
+        catch (Exception ex)
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            return Result<MaintenanceOrderDto>.Failure($"Error completing order: {ex.Message}");
+        }
+    }
+}
+
+/// <summary>
+/// VERIFY ORDER HANDLER - Requester verifies completed work
+/// </summary>
+public class VerifyMaintenanceOrderHandler : IRequestHandler<VerifyMaintenanceOrderCommand, Result<MaintenanceOrderDto>>
+{
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
+    private readonly IValidator<VerifyOrderDto> _validator;
+
+    public VerifyMaintenanceOrderHandler(IUnitOfWork unitOfWork, IMapper mapper, IValidator<VerifyOrderDto> validator)
+    {
+        _unitOfWork = unitOfWork;
+        _mapper = mapper;
+        _validator = validator;
+    }
+
+    public async Task<Result<MaintenanceOrderDto>> Handle(VerifyMaintenanceOrderCommand request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Validate
+            var validationResult = await _validator.ValidateAsync(request.VerifyDto, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                return Result<MaintenanceOrderDto>.Failure(validationResult.Errors.Select(e => e.ErrorMessage).ToList());
+            }
+
+            // Get order
+            var order = await _unitOfWork.MaintenanceOrders.GetOrderWithDetailsAsync(request.OrderId, cancellationToken);
+            if (order == null)
+                return Result<MaintenanceOrderDto>.Failure("Order not found");
+
+            // Check if order can be verified
+            if (order.CurrentStatus != OrderStatus.Completed)
+                return Result<MaintenanceOrderDto>.Failure("Only completed orders can be verified");
+
+            // Only requester can verify
+            if (order.CreatedByUserId != request.VerifiedByUserId)
+                return Result<MaintenanceOrderDto>.Failure("Only the order creator can verify the work");
+
+            // Update order with verification
+            var previousStatus = order.CurrentStatus;
+            order.IsApprovedByRequester = request.VerifyDto.IsApproved;
+            order.ApprovedByUserId = request.VerifiedByUserId;
+            order.ApprovedAt = DateTime.UtcNow;
+            order.Rating = request.VerifyDto.Rating;
+            order.RequesterFeedback = request.VerifyDto.Feedback;
+            order.LastModifiedAt = DateTime.UtcNow;
+
+            if (request.VerifyDto.IsApproved)
+            {
+                order.CurrentStatus = OrderStatus.Verified;
+
+                // Add status history
+                var statusHistory = new OrderStatusHistory
+                {
+                    MaintenanceOrderId = order.Id,
+                    FromStatus = previousStatus,
+                    ToStatus = OrderStatus.Verified,
+                    ChangedAt = DateTime.UtcNow,
+                    ChangedByUserId = request.VerifiedByUserId,
+                    Notes = $"Work verified with rating: {request.VerifyDto.Rating}/5"
+                };
+                await _unitOfWork.OrderStatusHistory.AddAsync(statusHistory, cancellationToken);
+            }
+            else
+            {
+                // If not approved, reopen the order
+                order.CurrentStatus = OrderStatus.Reopened;
+                order.IsRejected = true;
+                order.RejectedAt = DateTime.UtcNow;
+                order.RejectedByUserId = request.VerifiedByUserId;
+                order.RejectionReason = request.VerifyDto.Feedback;
+
+                var statusHistory = new OrderStatusHistory
+                {
+                    MaintenanceOrderId = order.Id,
+                    FromStatus = previousStatus,
+                    ToStatus = OrderStatus.Reopened,
+                    ChangedAt = DateTime.UtcNow,
+                    ChangedByUserId = request.VerifiedByUserId,
+                    Notes = "Work rejected by requester"
+                };
+                await _unitOfWork.OrderStatusHistory.AddAsync(statusHistory, cancellationToken);
+            }
+
+            _unitOfWork.MaintenanceOrders.Update(order);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            // Reload with details
+            order = await _unitOfWork.MaintenanceOrders.GetOrderWithDetailsAsync(order.Id, cancellationToken);
+            var orderDto = _mapper.Map<MaintenanceOrderDto>(order);
+
+            return Result<MaintenanceOrderDto>.Success(orderDto,
+                request.VerifyDto.IsApproved ? "Order verified successfully" : "Order reopened for rework");
+        }
+        catch (Exception ex)
+        {
+            return Result<MaintenanceOrderDto>.Failure($"Error verifying order: {ex.Message}");
+        }
+    }
+}
+
+/// <summary>
+/// CANCEL ORDER HANDLER - Cancels maintenance order
+/// </summary>
+public class CancelMaintenanceOrderHandler : IRequestHandler<CancelMaintenanceOrderCommand, Result<MaintenanceOrderDto>>
+{
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
+    private readonly IValidator<CancelOrderDto> _validator;
+
+    public CancelMaintenanceOrderHandler(IUnitOfWork unitOfWork, IMapper mapper, IValidator<CancelOrderDto> validator)
+    {
+        _unitOfWork = unitOfWork;
+        _mapper = mapper;
+        _validator = validator;
+    }
+
+    public async Task<Result<MaintenanceOrderDto>> Handle(CancelMaintenanceOrderCommand request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Validate
+            var validationResult = await _validator.ValidateAsync(request.CancelDto, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                return Result<MaintenanceOrderDto>.Failure(validationResult.Errors.Select(e => e.ErrorMessage).ToList());
+            }
+
+            // Get order
+            var order = await _unitOfWork.MaintenanceOrders.GetOrderWithDetailsAsync(request.OrderId, cancellationToken);
+            if (order == null)
+                return Result<MaintenanceOrderDto>.Failure("Order not found");
+
+            // Check if order can be cancelled
+            if (order.CurrentStatus == OrderStatus.Completed || order.CurrentStatus == OrderStatus.Closed)
+                return Result<MaintenanceOrderDto>.Failure("Cannot cancel a completed or closed order");
+
+            if (order.IsCancelled)
+                return Result<MaintenanceOrderDto>.Failure("Order is already cancelled");
+
+            // Cancel order
+            var previousStatus = order.CurrentStatus;
+            order.CurrentStatus = OrderStatus.Cancelled;
+            order.IsCancelled = true;
+            order.CancelledAt = DateTime.UtcNow;
+            order.CancelledByUserId = request.CancelledByUserId;
+            order.CancellationReason = request.CancelDto.CancellationReason;
+            order.LastModifiedAt = DateTime.UtcNow;
+
+            // Add status history
+            var statusHistory = new OrderStatusHistory
+            {
+                MaintenanceOrderId = order.Id,
+                FromStatus = previousStatus,
+                ToStatus = OrderStatus.Cancelled,
+                ChangedAt = DateTime.UtcNow,
+                ChangedByUserId = request.CancelledByUserId,
+                Notes = $"Order cancelled: {request.CancelDto.CancellationReason}"
+            };
+            await _unitOfWork.OrderStatusHistory.AddAsync(statusHistory, cancellationToken);
+
+            _unitOfWork.MaintenanceOrders.Update(order);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            // Reload with details
+            order = await _unitOfWork.MaintenanceOrders.GetOrderWithDetailsAsync(order.Id, cancellationToken);
+            var orderDto = _mapper.Map<MaintenanceOrderDto>(order);
+
+            return Result<MaintenanceOrderDto>.Success(orderDto, "Order cancelled successfully");
+        }
+        catch (Exception ex)
+        {
+            return Result<MaintenanceOrderDto>.Failure($"Error cancelling order: {ex.Message}");
+        }
+    }
+}
+
+/// <summary>
+/// ADD COMMENT HANDLER - Adds comment to order
+/// </summary>
+public class AddOrderCommentHandler : IRequestHandler<AddOrderCommentCommand, Result<OrderCommentDto>>
+{
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
+    private readonly IValidator<CreateOrderCommentDto> _validator;
+
+    public AddOrderCommentHandler(IUnitOfWork unitOfWork, IMapper mapper, IValidator<CreateOrderCommentDto> validator)
+    {
+        _unitOfWork = unitOfWork;
+        _mapper = mapper;
+        _validator = validator;
+    }
+
+    public async Task<Result<OrderCommentDto>> Handle(AddOrderCommentCommand request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Validate
+            var validationResult = await _validator.ValidateAsync(request.CommentDto, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                return Result<OrderCommentDto>.Failure(validationResult.Errors.Select(e => e.ErrorMessage).ToList());
+            }
+
+            // Check if order exists
+            var orderExists = await _unitOfWork.MaintenanceOrders.AnyAsync(
+                o => o.Id == request.CommentDto.MaintenanceOrderId,
+                cancellationToken);
+
+            if (!orderExists)
+                return Result<OrderCommentDto>.Failure("Order not found");
+
+            // Create comment
+            var comment = new OrderComment
+            {
+                MaintenanceOrderId = request.CommentDto.MaintenanceOrderId,
+                UserId = request.UserId,
+                Comment = request.CommentDto.Comment,
+                IsInternal = request.CommentDto.IsInternal,
+                CreatedAt = DateTime.UtcNow,
+                IsEdited = false
+            };
+
+            await _unitOfWork.OrderComments.AddAsync(comment, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            // Load user info for DTO
+            var user = await _unitOfWork.Users.GetByIdAsync(request.UserId, cancellationToken);
+            var commentDto = new OrderCommentDto
+            {
+                Id = comment.Id,
+                Comment = comment.Comment,
+                UserId = comment.UserId,
+                UserName = user?.FullName ?? "Unknown",
+                IsInternal = comment.IsInternal,
+                CreatedAt = comment.CreatedAt,
+                IsEdited = comment.IsEdited
+            };
+
+            return Result<OrderCommentDto>.Success(commentDto, "Comment added successfully");
+        }
+        catch (Exception ex)
+        {
+            return Result<OrderCommentDto>.Failure($"Error adding comment: {ex.Message}");
+        }
+    }
+}
+
+/// <summary>
+/// UPLOAD ATTACHMENT HANDLER - Uploads file attachment to order
+/// </summary>
+public class UploadOrderAttachmentHandler : IRequestHandler<UploadOrderAttachmentCommand, Result<OrderAttachmentDto>>
+{
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
+
+    public UploadOrderAttachmentHandler(IUnitOfWork unitOfWork, IMapper mapper)
+    {
+        _unitOfWork = unitOfWork;
+        _mapper = mapper;
+    }
+
+    public async Task<Result<OrderAttachmentDto>> Handle(UploadOrderAttachmentCommand request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Check if order exists
+            var orderExists = await _unitOfWork.MaintenanceOrders.AnyAsync(
+                o => o.Id == request.OrderId,
+                cancellationToken);
+
+            if (!orderExists)
+                return Result<OrderAttachmentDto>.Failure("Order not found");
+
+            // Create attachment record
+            var attachment = new OrderAttachment
+            {
+                MaintenanceOrderId = request.OrderId,
+                FileName = request.FileName,
+                FileUrl = request.FileUrl,
+                FileSize = request.FileSize,
+                FileType = request.FileType,
+                Type = DetermineAttachmentType(request.FileType),
+                Description = request.Description,
+                UploadedByUserId = request.UploadedByUserId,
+                UploadedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.OrderAttachments.AddAsync(attachment, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            // Load user info
+            var user = await _unitOfWork.Users.GetByIdAsync(request.UploadedByUserId, cancellationToken);
+
+            var attachmentDto = new OrderAttachmentDto
+            {
+                Id = attachment.Id,
+                FileName = attachment.FileName,
+                FileUrl = attachment.FileUrl,
+                FileSize = attachment.FileSize,
+                FileType = attachment.FileType,
+                Type = attachment.Type,
+                TypeName = attachment.Type.ToString(),
+                Description = attachment.Description,
+                UploadedByUserName = user?.FullName ?? "Unknown",
+                UploadedAt = attachment.UploadedAt
+            };
+
+            return Result<OrderAttachmentDto>.Success(attachmentDto, "Attachment uploaded successfully");
+        }
+        catch (Exception ex)
+        {
+            return Result<OrderAttachmentDto>.Failure($"Error uploading attachment: {ex.Message}");
+        }
+    }
+
+    private AttachmentType DetermineAttachmentType(string fileType)
+    {
+        return fileType.ToLower() switch
+        {
+            var t when t.Contains("image") => AttachmentType.Photo,
+            var t when t.Contains("video") => AttachmentType.Video,
+            var t when t.Contains("audio") => AttachmentType.Audio,
+            var t when t.Contains("pdf") || t.Contains("doc") || t.Contains("xls") => AttachmentType.Document,
+            _ => AttachmentType.Other
+        };
+    }
+}
