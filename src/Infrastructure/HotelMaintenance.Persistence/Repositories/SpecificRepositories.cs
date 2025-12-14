@@ -35,7 +35,7 @@ public class DepartmentRepository : Repository<Department>, IDepartmentRepositor
     }
 
     public async Task<IEnumerable<Department>> GetByHotelIdAsync(
-        int hotelId, 
+        int hotelId,
         CancellationToken cancellationToken = default)
     {
         return await _dbSet
@@ -46,13 +46,13 @@ public class DepartmentRepository : Repository<Department>, IDepartmentRepositor
     }
 
     public async Task<Department?> GetMaintenanceDepartmentAsync(
-        int hotelId, 
+        int hotelId,
         CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .FirstOrDefaultAsync(d => d.HotelId == hotelId && 
-                                     d.IsMaintenanceProvider && 
-                                     d.IsActive, 
+            .FirstOrDefaultAsync(d => d.HotelId == hotelId &&
+                                     d.IsMaintenanceProvider &&
+                                     d.IsActive,
                                 cancellationToken);
     }
 }
@@ -63,6 +63,19 @@ public class UserRepository : Repository<User>, IUserRepository
     {
     }
 
+    // Override GetByIdAsync to include related entities
+    public override async Task<User?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(u => u.Hotel)
+            .Include(u => u.Department)
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+                    .ThenInclude(r => r.RolePermissions)
+                        .ThenInclude(rp => rp.Permission)
+            .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+    }
+
     public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
     {
         return await _dbSet
@@ -70,6 +83,8 @@ public class UserRepository : Repository<User>, IUserRepository
             .Include(u => u.Department)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
+                    .ThenInclude(r => r.RolePermissions)
+                        .ThenInclude(rp => rp.Permission)
             .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
     }
 
@@ -80,16 +95,18 @@ public class UserRepository : Repository<User>, IUserRepository
             .Include(u => u.Department)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
+                    .ThenInclude(r => r.RolePermissions)
+                        .ThenInclude(rp => rp.Permission)
             .FirstOrDefaultAsync(u => u.EmployeeId == employeeId, cancellationToken);
     }
 
     public async Task<IEnumerable<User>> GetAvailableTechniciansAsync(
-        int departmentId, 
+        int departmentId,
         CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Where(u => u.DepartmentId == departmentId && 
-                       u.IsAvailable && 
+            .Where(u => u.DepartmentId == departmentId &&
+                       u.IsAvailable &&
                        u.IsActive)
             .OrderBy(u => u.LastName)
             .ThenBy(u => u.FirstName)
@@ -104,7 +121,7 @@ public class ItemRepository : Repository<Item>, IItemRepository
     }
 
     public async Task<IEnumerable<Item>> GetByHotelIdAsync(
-        int hotelId, 
+        int hotelId,
         CancellationToken cancellationToken = default)
     {
         return await _dbSet
@@ -118,7 +135,7 @@ public class ItemRepository : Repository<Item>, IItemRepository
     }
 
     public async Task<IEnumerable<Item>> GetByLocationIdAsync(
-        int locationId, 
+        int locationId,
         CancellationToken cancellationToken = default)
     {
         return await _dbSet
@@ -130,7 +147,7 @@ public class ItemRepository : Repository<Item>, IItemRepository
     }
 
     public async Task<IEnumerable<Item>> GetByCategoryIdAsync(
-        int categoryId, 
+        int categoryId,
         CancellationToken cancellationToken = default)
     {
         return await _dbSet
@@ -141,8 +158,8 @@ public class ItemRepository : Repository<Item>, IItemRepository
     }
 
     public async Task<Item?> GetByCodeAsync(
-        string code, 
-        int hotelId, 
+        string code,
+        int hotelId,
         CancellationToken cancellationToken = default)
     {
         return await _dbSet
@@ -159,7 +176,7 @@ public class SparePartRepository : Repository<SparePart>, ISparePartRepository
     }
 
     public async Task<IEnumerable<SparePart>> GetByHotelIdAsync(
-        int hotelId, 
+        int hotelId,
         CancellationToken cancellationToken = default)
     {
         return await _dbSet
@@ -171,22 +188,22 @@ public class SparePartRepository : Repository<SparePart>, ISparePartRepository
     }
 
     public async Task<IEnumerable<SparePart>> GetLowStockPartsAsync(
-        int hotelId, 
+        int hotelId,
         CancellationToken cancellationToken = default)
     {
         return await _dbSet
             .Include(s => s.Item)
             .Include(s => s.StorageDepartment)
-            .Where(s => s.HotelId == hotelId && 
-                       s.IsActive && 
+            .Where(s => s.HotelId == hotelId &&
+                       s.IsActive &&
                        s.QuantityOnHand <= s.MinimumQuantity)
             .OrderBy(s => s.QuantityOnHand)
             .ToListAsync(cancellationToken);
     }
 
     public async Task<SparePart?> GetByCodeAsync(
-        string code, 
-        int hotelId, 
+        string code,
+        int hotelId,
         CancellationToken cancellationToken = default)
     {
         return await _dbSet
@@ -203,7 +220,7 @@ public class LocationRepository : Repository<Location>, ILocationRepository
     }
 
     public async Task<IEnumerable<Location>> GetByHotelIdAsync(
-        int hotelId, 
+        int hotelId,
         CancellationToken cancellationToken = default)
     {
         return await _dbSet
@@ -216,8 +233,8 @@ public class LocationRepository : Repository<Location>, ILocationRepository
     }
 
     public async Task<IEnumerable<Location>> GetByTypeAsync(
-        int hotelId, 
-        LocationType type, 
+        int hotelId,
+        LocationType type,
         CancellationToken cancellationToken = default)
     {
         return await _dbSet
@@ -243,7 +260,7 @@ public class VendorRepository : Repository<Vendor>, IVendorRepository
     }
 
     public async Task<IEnumerable<Vendor>> GetByTypeAsync(
-        VendorType type, 
+        VendorType type,
         CancellationToken cancellationToken = default)
     {
         return await _dbSet
@@ -260,14 +277,14 @@ public class SLAConfigurationRepository : Repository<SLAConfiguration>, ISLAConf
     }
 
     public async Task<SLAConfiguration?> GetByHotelAndPriorityAsync(
-        int hotelId, 
-        OrderPriority priority, 
+        int hotelId,
+        OrderPriority priority,
         CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .FirstOrDefaultAsync(s => s.HotelId == hotelId && 
-                                     s.Priority == priority && 
-                                     s.IsActive, 
+            .FirstOrDefaultAsync(s => s.HotelId == hotelId &&
+                                     s.Priority == priority &&
+                                     s.IsActive,
                                 cancellationToken);
     }
 }

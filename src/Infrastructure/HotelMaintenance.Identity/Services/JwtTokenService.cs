@@ -1,3 +1,4 @@
+using HotelMaintenance.Domain.Entities;
 using HotelMaintenance.Domain.Interfaces;
 using HotelMaintenance.Identity.Models;
 using Microsoft.Extensions.Options;
@@ -33,6 +34,23 @@ public class JwtTokenService
         var user = await _unitOfWork.Users.GetByIdAsync(userId);
         if (user == null)
             throw new Exception("User not found");
+
+        return GenerateTokenForUser(user);
+    }
+
+    /// <summary>
+    /// Generate JWT token for authenticated user (overload that accepts user object)
+    /// </summary>
+    public LoginResponse GenerateTokenForUser(User user)
+    {
+        if (user == null)
+            throw new ArgumentNullException(nameof(user));
+
+        // Check if UserRoles is loaded
+        if (user.UserRoles == null || !user.UserRoles.Any())
+        {
+            throw new Exception($"User {user.Email} has no roles assigned. UserRoles collection is empty or null.");
+        }
 
         var userRoles = user.UserRoles.Select(ur => ur.Role.Name).ToList();
         var permissions = user.UserRoles

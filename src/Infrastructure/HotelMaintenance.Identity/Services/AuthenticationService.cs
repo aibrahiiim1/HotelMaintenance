@@ -33,7 +33,7 @@ public class AuthenticationService
         {
             // Find user by email
             var user = await _unitOfWork.Users.GetByEmailAsync(request.Email);
-            
+
             if (user == null)
             {
                 _logger.LogWarning("Login attempt with invalid email: {Email}", request.Email);
@@ -41,11 +41,7 @@ public class AuthenticationService
             }
 
             // Verify password
-            // Note: In production, you should have a PasswordHash field in User entity
-            // For now, this is a placeholder - you'll need to add password hashing to User entity
-            // After (real):
             if (!VerifyPassword(request.Password, user.PasswordHash))
-                if (!VerifyPassword(request.Password, user.Email)) // Placeholder
             {
                 _logger.LogWarning("Invalid password attempt for user: {Email}", request.Email);
                 return null;
@@ -56,11 +52,11 @@ public class AuthenticationService
             _unitOfWork.Users.Update(user);
             await _unitOfWork.SaveChangesAsync();
 
-            // Generate token
-            var tokenResponse = await _jwtTokenService.GenerateTokenAsync(user.Id);
-            
+            // Generate token - pass user object directly to avoid second database call
+            var tokenResponse = _jwtTokenService.GenerateTokenForUser(user);
+
             _logger.LogInformation("User {Email} logged in successfully", request.Email);
-            
+
             return tokenResponse;
         }
         catch (Exception ex)
@@ -107,12 +103,11 @@ public class AuthenticationService
             }
 
             // Verify current password
-            // Note: Add PasswordHash property to User entity
-            // if (!VerifyPassword(request.CurrentPassword, user.PasswordHash))
-            // {
-            //     _logger.LogWarning("Invalid current password for user {UserId}", userId);
-            //     return false;
-            // }
+            if (!VerifyPassword(request.CurrentPassword, user.PasswordHash))
+            {
+                _logger.LogWarning("Invalid current password for user {UserId}", userId);
+                return false;
+            }
 
             // Validate new password
             if (request.NewPassword != request.ConfirmPassword)
@@ -122,14 +117,14 @@ public class AuthenticationService
             }
 
             // Hash and update new password
-            // user.PasswordHash = HashPassword(request.NewPassword);
-            // user.LastModifiedAt = DateTime.UtcNow;
-            
+            user.PasswordHash = HashPassword(request.NewPassword);
+            user.LastModifiedAt = DateTime.UtcNow;
+
             _unitOfWork.Users.Update(user);
             await _unitOfWork.SaveChangesAsync();
 
             _logger.LogInformation("Password changed successfully for user {UserId}", userId);
-            
+
             return true;
         }
         catch (Exception ex)

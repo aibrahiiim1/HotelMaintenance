@@ -138,8 +138,11 @@ public class PerformanceMonitoringMiddleware
                 duration);
         }
 
-        // Add response header
-        context.Response.Headers.Add("X-Response-Time", $"{duration}ms");
+        // Add response header only if response hasn't started yet
+        if (!context.Response.HasStarted)
+        {
+            context.Response.Headers.Add("X-Response-Time", $"{duration}ms");
+        }
     }
 }
 
