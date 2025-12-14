@@ -220,7 +220,6 @@ public class SparePartsController : ControllerBase
                 QuantityOnHand = part.QuantityOnHand,
                 MinimumQuantity = part.MinimumQuantity,
                 MaximumQuantity = part.MaximumQuantity,
-                ReorderPoint = part.ReorderPoint,
                 UnitOfMeasure = part.UnitOfMeasure,
                 UnitCost = part.UnitCost,
                 LastPurchasePrice = part.LastPurchasePrice,

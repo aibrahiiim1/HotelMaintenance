@@ -100,24 +100,30 @@ public class CreateMaintenanceOrderDto
     public int LocationId { get; set; }
     public int? ItemId { get; set; }
     public DateTime ExpectedCompletionDate { get; set; }
+    public decimal EstimatedCost { get; set; } = 0;            // ADDED
     public bool IsUrgent { get; set; } = false;
     public bool IsSafetyRelated { get; set; } = false;
     public bool IsGuestFacing { get; set; } = false;
     public string? GuestName { get; set; }
     public string? GuestRoomNumber { get; set; }
+    public string? InternalNotes { get; set; }                 // ADDED
     public string? Tags { get; set; }
 }
+
 
 public class UpdateMaintenanceOrderDto
 {
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public OrderPriority Priority { get; set; }
+    public OrderType Type { get; set; }                        // ADDED
     public int LocationId { get; set; }
     public int? ItemId { get; set; }
     public DateTime ExpectedCompletionDate { get; set; }
+    public decimal EstimatedCost { get; set; }                 // ADDED
     public bool IsUrgent { get; set; }
     public bool IsSafetyRelated { get; set; }
+    public string? InternalNotes { get; set; }                 // ADDED
 }
 
 public class AssignOrderDto
@@ -126,7 +132,6 @@ public class AssignOrderDto
     public int? AssignedToUserId { get; set; }
     public string? Reason { get; set; }
 }
-
 public class UpdateOrderStatusDto
 {
     public OrderStatus NewStatus { get; set; }
@@ -218,7 +223,7 @@ public class OrderAssignmentHistoryDto
 public class OrderCommentDto
 {
     public long Id { get; set; }
-    public string Comment { get; set; } = string.Empty;
+    public string Comment { get; set; } = string.Empty;        // CORRECT (not CommentText)
     public int UserId { get; set; }
     public string UserName { get; set; } = string.Empty;
     public bool IsInternal { get; set; }
@@ -232,7 +237,6 @@ public class CreateOrderCommentDto
     public string Comment { get; set; } = string.Empty;
     public bool IsInternal { get; set; } = false;
 }
-
 public class OrderAttachmentDto
 {
     public long Id { get; set; }
@@ -252,15 +256,7 @@ public class OrderAttachmentDto
     public string UploadedByUserId { get; set; } = string.Empty;
 }
 
-/// <summary>
-/// Request DTO for adding a comment
-/// </summary>
-public class AddOrderCommentDto
-{
-    public int MaintenanceOrderId { get; set; }
-    public string Comment { get; set; } = string.Empty;
-    public bool IsInternal { get; set; }
-}
+
 
 /// <summary>
 /// Request DTO for uploading an attachment

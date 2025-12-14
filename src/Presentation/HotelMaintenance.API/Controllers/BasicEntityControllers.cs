@@ -142,9 +142,9 @@ public class DepartmentsController : ControllerBase
                 Id = d.Id,
                 Code = d.Code,
                 Name = d.Name,
-                Type = d.Type,
+                ManagerName = d.Manager.FullName,
                 HotelName = d.Hotel.Name,
-                IsMaintenanceProvider = d.IsMaintenanceProvider,
+                TypeName = d.Type.ToString(),
                 IsActive = d.IsActive
             });
             return Ok(result);

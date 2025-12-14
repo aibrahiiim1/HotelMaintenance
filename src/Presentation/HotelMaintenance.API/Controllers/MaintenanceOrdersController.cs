@@ -159,7 +159,7 @@ public class MaintenanceOrdersController : ControllerBase
                 Comments = order.Comments.Select(c => new OrderCommentDto
                 {
                     Id = c.Id,
-                    CommentText = c.CommentText,
+                    Comment = c.Comment,
                     CreatedAt = c.CreatedAt,
                     UserName = c.User.FullName,
                     IsInternal = c.IsInternal
@@ -355,7 +355,7 @@ public class MaintenanceOrdersController : ControllerBase
                 ToDepartmentId = dto.AssignedDepartmentId,
                 AssignedAt = DateTime.UtcNow,
                 AssignedByUserId = userId,
-                Notes = dto.Notes
+                Reason = dto.Reason
             };
             await _unitOfWork.OrderAssignmentHistory.AddAsync(assignmentHistory);
 
@@ -446,7 +446,7 @@ public class MaintenanceOrdersController : ControllerBase
     [Authorize(Policy = "Orders.View")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> AddComment(long id, [FromBody] AddOrderCommentDto dto)
+    public async Task<IActionResult> AddComment(long id, [FromBody] CreateOrderCommentDto dto)
     {
         try
         {
@@ -463,7 +463,7 @@ public class MaintenanceOrdersController : ControllerBase
             {
                 MaintenanceOrderId = id,
                 UserId = userId,
-                CommentText = dto.CommentText,
+                Comment = dto.Comment,
                 IsInternal = dto.IsInternal,
                 CreatedAt = DateTime.UtcNow
             };

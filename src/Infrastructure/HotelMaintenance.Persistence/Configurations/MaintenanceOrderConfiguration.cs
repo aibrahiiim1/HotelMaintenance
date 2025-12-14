@@ -204,5 +204,37 @@ public class MaintenanceOrderConfiguration : IEntityTypeConfiguration<Maintenanc
             .WithOne(s => s.Order)
             .HasForeignKey(s => s.MaintenanceOrderId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Additional User relationships (no inverse navigation properties on User)
+        builder.HasOne(o => o.AssignedByUser)
+            .WithMany()
+            .HasForeignKey(o => o.AssignedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(o => o.CompletedByUser)
+            .WithMany()
+            .HasForeignKey(o => o.CompletedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(o => o.ApprovedByUser)
+            .WithMany()
+            .HasForeignKey(o => o.ApprovedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(o => o.CancelledByUser)
+            .WithMany()
+            .HasForeignKey(o => o.CancelledByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(o => o.RejectedByUser)
+            .WithMany()
+            .HasForeignKey(o => o.RejectedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Self-referencing relationship for FollowUpOrder
+        builder.HasOne(o => o.FollowUpOrder)
+            .WithMany()
+            .HasForeignKey(o => o.FollowUpOrderId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

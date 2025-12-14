@@ -122,6 +122,7 @@ public class MaintenanceOrder : AuditableEntity
     public User? CompletedByUser { get; set; }
     public User? ApprovedByUser { get; set; }
     public User? CancelledByUser { get; set; }
+    public User? RejectedByUser { get; set; }
     public Vendor? Vendor { get; set; }
     public MaintenanceOrder? FollowUpOrder { get; set; }
     

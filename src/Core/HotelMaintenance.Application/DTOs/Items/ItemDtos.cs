@@ -34,6 +34,19 @@ public class CreateLocationDto
     public string? Zone { get; set; }
     public string? RoomNumber { get; set; }
 }
+public class UpdateLocationDto
+{
+    public int HotelId { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public LocationType Type { get; set; }
+    public int? ParentLocationId { get; set; }
+    public string? Building { get; set; }
+    public string? Floor { get; set; }
+    public string? Zone { get; set; }
+    public string? RoomNumber { get; set; }
+}
 
 
 public class ItemDto
@@ -85,6 +98,28 @@ public class CreateItemDto
     public bool RequiresPreventiveMaintenance { get; set; }
     public int? MaintenanceIntervalDays { get; set; }
     public bool IsCritical { get; set; }
+}
+public class UpdateItemDto
+{
+    public int HotelId { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public int CategoryId { get; set; }
+    public int? ClassId { get; set; }
+    public int? FamilyId { get; set; }
+    public int LocationId { get; set; }
+    public string? Manufacturer { get; set; }
+    public string? Model { get; set; }
+    public string? SerialNumber { get; set; }
+    public string? AssetTag { get; set; }
+    public DateTime? InstallationDate { get; set; }
+    public DateTime? WarrantyStartDate { get; set; }
+    public DateTime? WarrantyExpiryDate { get; set; }
+    public bool RequiresPreventiveMaintenance { get; set; }
+    public int? MaintenanceIntervalDays { get; set; }
+    public bool IsCritical { get; set; }
+    public ItemStatus Status { get; set; }
 }
 
 public class ItemCategoryDto

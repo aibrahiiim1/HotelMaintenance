@@ -43,7 +43,9 @@ public class AuthenticationService
             // Verify password
             // Note: In production, you should have a PasswordHash field in User entity
             // For now, this is a placeholder - you'll need to add password hashing to User entity
-            if (!VerifyPassword(request.Password, user.Email)) // Placeholder
+            // After (real):
+            if (!VerifyPassword(request.Password, user.PasswordHash))
+                if (!VerifyPassword(request.Password, user.Email)) // Placeholder
             {
                 _logger.LogWarning("Invalid password attempt for user: {Email}", request.Email);
                 return null;

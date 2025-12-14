@@ -74,6 +74,10 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.Mobile)
             .HasMaxLength(50);
 
+        builder.Property(u => u.PasswordHash)
+    .IsRequired()
+    .HasMaxLength(500);
+
         builder.Property(u => u.JobTitle)
             .HasMaxLength(100);
 

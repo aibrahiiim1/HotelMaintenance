@@ -12,7 +12,7 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services)
     {
         // Register external services
-        services.AddScoped<IFileStorageService, AzureBlobStorageService>();
+        //services.AddScoped<IFileStorageService, AzureBlobStorageService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<ISmsService, SmsService>();
         services.AddScoped<IPushNotificationService, PushNotificationService>();

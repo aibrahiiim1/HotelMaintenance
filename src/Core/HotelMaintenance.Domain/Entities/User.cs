@@ -13,7 +13,7 @@ public class User : AuditableEntity
     public string Email { get; set; } = string.Empty;
     public string? Phone { get; set; }
     public string? Mobile { get; set; }
-    
+    public string PasswordHash { get; set; } = string.Empty;
     /// <summary>
     /// Primary hotel assignment
     /// </summary>

@@ -5,7 +5,6 @@ using HotelMaintenance.Identity;
 using HotelMaintenance.Infrastructure;
 using HotelMaintenance.Persistence;
 using HotelMaintenance.Persistence.Context;
-using HotelMaintenance.Persistence.Seeders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Serilog;
